@@ -22,10 +22,12 @@ public class Walk : MonoBehaviour
         prefab = Resources.Load("PlayerPrefab") as GameObject;
     }
 
-    GameObject AddPlayer(string id, Vector3 pos, int score)
+    GameObject AddPlayer(string id, Vector3 pos)
     {
         GameObject player = Instantiate(prefab, pos, Quaternion.identity);
-        player.GetComponentInChildren<TextMesh>().text = id + ":" + score;
+        if (id != playerId)
+            player.transform.GetComponentInChildren<Camera>().gameObject.SetActive(false);
+        //player.GetComponentInChildren<TextMesh>().text = id + ":" + score;
         players.Add(id, player);
         return player;
 
@@ -44,7 +46,7 @@ public class Walk : MonoBehaviour
     {
         if (players.ContainsKey(id))
         {
-            players[id].GetComponentInChildren<TextMesh>().text = id + ":" + score;
+            //players[id].GetComponentInChildren<TextMesh>().text = id + ":" + score;
         }
     }
 
@@ -62,18 +64,33 @@ public class Walk : MonoBehaviour
             UpdateScore(id, score);
         }
         else
-            AddPlayer(id, pos, score);
+            AddPlayer(id, pos);
+    }
+
+    //更新角度
+    public void UpdateRotate(string id, Quaternion quaternion)
+    {
+        if (id == playerId)
+        {
+            return;
+        }
+        if (players.ContainsKey(id))
+        {
+            players[id].transform.rotation = quaternion;
+        }
+        else
+            AddPlayer(id, Vector3.zero);
     }
 
     //开始进入游戏
     public void StartGame(string id)
     {
         playerId = id;
-        float x = Random.Range(0, 10);
-        float y = Random.Range(0, 10);
-        float z = 0;
+        float x = Random.Range(-5, 5);
+        float y = Random.Range(5, 6);
+        float z = Random.Range(-5, 5);
         Vector3 pos = new Vector3(x, y, z);
-        myObject=AddPlayer(playerId, pos, 0);
+        myObject=AddPlayer(playerId, pos);
         Debug.Log(pos);
         SendPos();
         ProtocolBytes protocolBytes = new ProtocolBytes();
@@ -81,6 +98,10 @@ public class Walk : MonoBehaviour
         NetMgr.srvConn.Send(protocolBytes, GetList);
         NetMgr.srvConn.msgDistribution.AddListener("UpdateInfo", UpdateInfo);
         NetMgr.srvConn.msgDistribution.AddListener("PlayerLeave", PlayerLeave);
+        NetMgr.srvConn.msgDistribution.AddListener("UpdateRot", UpdateRotation);
+
+        //进入游戏关闭摄像机
+        //Camera.main.gameObject.SetActive(false);
     }
 
     void SendPos()
@@ -92,6 +113,19 @@ public class Walk : MonoBehaviour
         protocol.AddFloat(pos.x);
         protocol.AddFloat(pos.y);
         protocol.AddFloat(pos.z);
+        NetMgr.srvConn.Send(protocol);
+    }
+
+    void SendRotate()
+    {
+        GameObject player = players[playerId];
+        Quaternion rot = player.transform.rotation;
+        ProtocolBytes protocol = new ProtocolBytes();
+        protocol.AddString("UpdateRot");
+        protocol.AddFloat(rot.x);
+        protocol.AddFloat(rot.y);
+        protocol.AddFloat(rot.z);
+        protocol.AddFloat(rot.w);
         NetMgr.srvConn.Send(protocol);
     }
 
@@ -128,6 +162,19 @@ public class Walk : MonoBehaviour
 
     }
 
+    public void UpdateRotation(ProtocolBase protocol)
+    {
+        ProtocolBytes proto = (ProtocolBytes)protocol;
+        int start = 0;
+        string name = proto.GetString(start, ref start);
+        string id = proto.GetString(start, ref start);
+        float x = proto.GetFloat(start, ref start);
+        float y = proto.GetFloat(start, ref start);
+        float z = proto.GetFloat(start, ref start);
+        float w = proto.GetFloat(start, ref start);
+        UpdateRotate(id, new Quaternion(x, y, z, w));
+    }
+
     public void PlayerLeave(ProtocolBase protocol)
     {
         ProtocolBytes proto = (ProtocolBytes)protocol;
@@ -137,35 +184,53 @@ public class Walk : MonoBehaviour
         DelPlayer(id);
     }
 
+    public float flySpeed = 10;
+    public float turnSpeed = 100;
     void Move()
     {
-        if (Time.time - lastMoveTime < 0.1)
+
+        //if (Input.GetKey(KeyCode.UpArrow))
+        //    myObject.transform.position += myObject.transform.forward * flySpeed * Time.deltaTime;
+        //if (Input.GetKey(KeyCode.LeftArrow))
+        //    myObject.transform.Rotate(myObject.transform.up, -turnSpeed * Time.deltaTime);
+        //if (Input.GetKey(KeyCode.RightArrow))
+        //    myObject.transform.Rotate(myObject.transform.up, turnSpeed * Time.deltaTime);
+
+        float deltaTime = Time.time - lastMoveTime;
+        if (deltaTime < 1 / 60f)
             return;
         if (Input.GetKey(KeyCode.UpArrow))
         {
-            myObject.transform.position += new Vector3(0, 1, 0);
+            myObject.transform.position += myObject.transform.forward*flySpeed* deltaTime;
             SendPos();
         }
         else if (Input.GetKey(KeyCode.LeftArrow))
         {
-            myObject.transform.position += new Vector3(-1, 0, 0);
-            SendPos();
+            myObject.transform.Rotate(myObject.transform.up, -turnSpeed * deltaTime);
+            SendRotate();
         }
-        else if(Input.GetKey(KeyCode.RightArrow))
+        else if (Input.GetKey(KeyCode.RightArrow))
         {
-            myObject.transform.position += new Vector3(1, 0, 0);
-            SendPos();
+            myObject.transform.Rotate(myObject.transform.up, turnSpeed * deltaTime);
+            SendRotate();
         }
-        else if(Input.GetKey(KeyCode.DownArrow))
+        else if (Input.GetKey(KeyCode.DownArrow))
         {
-            myObject.transform.position += new Vector3(0, -1, 0);
+            myObject.transform.position += -myObject.transform.forward * flySpeed * deltaTime;
             SendPos();
         }
+
         lastMoveTime = Time.time;
     }
     private void Update()
     {
+        if (myObject == null)
+            return;
         Move();
     }
+
+
+ 
+
 
 }

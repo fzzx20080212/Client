@@ -42,12 +42,12 @@ public class Connection {
             }
         }
     }
-
+    public string hostAddress = "192.168.50.31";
     public bool Connect()
     {
         try
         {
-            string host = "127.0.0.1";
+            string host = hostAddress;
             int port = 1234;
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(host, port);

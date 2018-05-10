@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 public class LoginPanel : PanelBase {
 
-    private InputField idInput, pwInput;
+    private InputField idInput, pwInput,hostInput;
     private Button loginBtn, regBtn;
     
     public override void Init(params object[] args)
@@ -20,12 +20,13 @@ public class LoginPanel : PanelBase {
         Transform transform = skin.transform;
         idInput = transform.Find("IDInput").GetComponent<InputField>();
         pwInput = transform.Find("PWInput").GetComponent<InputField>();
+        hostInput = transform.Find("hostInput").GetComponent<InputField>();
         loginBtn = transform.Find("LoginBtn").GetComponent<Button>();
         regBtn = transform.Find("RegBtn").GetComponent<Button>();
 
         loginBtn.onClick.AddListener(OnLoginClick);
         regBtn.onClick.AddListener(OnRegClick);
-
+        hostInput.text = "192.168.50.31";
         if (args.Length>0)
             idInput.text =(string)args[0];
     }
@@ -45,7 +46,7 @@ public class LoginPanel : PanelBase {
         }
         if (NetMgr.srvConn.status == Connection.Status.None)
         {
-        
+            NetMgr.srvConn.hostAddress = hostInput.text;
             NetMgr.srvConn.Connect();
         }
         ProtocolBytes protocol = new ProtocolBytes();
@@ -64,8 +65,8 @@ public class LoginPanel : PanelBase {
         if (ret == 0)
         {
             Debug.Log("登入成功");
-            //Walk.instance.StartGame(idInput.text);
-            PanelMgr.instance.OpenPanel<RoomListPanel>("RoomListPanel");
+            Walk.instance.StartGame(idInput.text);
+            //PanelMgr.instance.OpenPanel<RoomListPanel>("RoomListPanel");
             Close();
         }
         else
